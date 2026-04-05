@@ -1,0 +1,88 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark">
+
+    <ImageView
+        android:id="@+id/backgroundImage"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="Home wallpaper"
+        android:scaleType="centerCrop" />
+
+    <LinearLayout
+      android:id="@+id/infoLayout"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:gravity="center_horizontal"
+      android:layout_gravity="bottom"
+      android:paddingBottom="32" >
+
+    <TextView
+      android:id="@+id/clockText"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_horizontal"
+      android:textColor="#FFFFFF"
+      android:shadowColor="#80000000"
+      android:shadowDx="0"
+      android:shadowDy="2"
+      android:shadowRadius="4"
+      android:textSize="37sp" />
+
+    <TextView
+      android:id="@+id/utcText"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_horizontal"
+      android:textColor="#FFFFFF"
+      android:shadowColor="#80000000"
+      android:shadowDx="0"
+      android:shadowDy="2"
+      android:shadowRadius="4"
+      android:textSize="27sp" />
+
+    <TextView
+      android:id="@+id/dateText"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_horizontal"
+      android:textColor="#FFFFFF"
+      android:shadowColor="#80000000"
+      android:shadowDx="0"
+      android:shadowDy="2"
+      android:shadowRadius="4"
+      android:textSize="27sp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/notificationShade"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="bottom"
+        android:background="#EE000000"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Notifications"
+            android:textColor="@color/white"
+            android:textSize="20sp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/notificationList"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="12dp" />
+    </LinearLayout>
+
+</FrameLayout>

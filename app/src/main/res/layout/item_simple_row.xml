@@ -1,0 +1,10 @@
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rowText"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/row_bg"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:padding="14dp"
+    android:textColor="@color/white"
+    android:textSize="16sp" />
