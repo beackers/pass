@@ -1,7 +1,3 @@
-# pass
+# PASS
 
-Firefighter's PASS alarm simulator, built for the dumbphone.
-
-
-
-
+Firefighter's PASS alarm simulator for dumbphones.
