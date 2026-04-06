@@ -1,7 +1,3 @@
-# pass
+# PASS
 
-Firefighter's PASS alarm simulator, built for the dumbphone.
-
-
-
-
+Fresh Android starter project for package `com.beackers.pass`.

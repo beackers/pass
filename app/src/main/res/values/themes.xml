@@ -1,10 +1,5 @@
-<resources xmlns:android="http://schemas.android.com/apk/res/android">
-<style name="Theme.DumbHome" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-    <item name="colorPrimary">@color/accent</item>
+<resources>
 
-    <item name="android:statusBarColor">@android:color/transparent</item>
-    <item name="android:navigationBarColor">@android:color/black</item>
+    <style name="Theme.Pass" parent="Theme.Material3.DayNight.NoActionBar" />
 
-    <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-</style>
 </resources>
