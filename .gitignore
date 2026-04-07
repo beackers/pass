@@ -2,6 +2,9 @@
 /java
 /asmr
 
+# Do Not Track prefix
+dnt_*.*
+
 # Gradle files
 .gradle/
 build/

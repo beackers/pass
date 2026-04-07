@@ -7,7 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 
 import com.beackers.pass.databinding.ActivityMainBinding
 import com.beackers.pass.alarm.AlarmActivity
-import com.beackers.settings.SettingsActivity
+import com.beackers.pass.settings.SettingsActivity
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding

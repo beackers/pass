@@ -32,10 +32,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Lint (except Java and Kotlin)
-        run: ./gradlew lint --stacktrace
+        run: ./gradlew lint
 
       - name: Lint (Java and Kotlin)
-        run: ./gradlew lintDebug --stacktrace
+        run: ./gradlew lintDebug
 
       - name: Compile debug build
         run: ./gradlew assembleDebug
