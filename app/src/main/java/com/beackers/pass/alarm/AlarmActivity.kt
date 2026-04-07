@@ -1,4 +1,10 @@
 package com.beackers.pass.alarm
 
-class AlarmActivity {
+import android.os.Bundle
+import androix.appcompat.app.AppCompatActivity
+
+class AlarmActivity : AppCompatActivity {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+  }
 }

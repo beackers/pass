@@ -1,4 +1,10 @@
 package com.beackers.pass.settings
 
-class SettingsActivity {
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+
+class SettingsActivity : AppCompatActivity() {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceBundle)
+  }
 }
