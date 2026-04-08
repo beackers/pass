@@ -4,5 +4,5 @@ enum class AlarmState {
   STANDBY,
   ARMED,
   PREALARM,
-  ALARMING
+  ALARM
 }

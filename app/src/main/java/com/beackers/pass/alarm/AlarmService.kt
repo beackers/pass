@@ -2,7 +2,12 @@ package com.beackers.pass.alarm
 
 import android.app.Service
 import android.content.Intent
+import android.content.Context
 import android.os.IBinder
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -11,14 +16,20 @@ import android.app.NotificationManager
 import androidx.core.app.NotificationCompat
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 
 class AlarmService : Service() {
   // scope declaration
   private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
   // PASS state management
-  //private var measureJob: Job? = null
-  private var state = AlarmState.STANDBY
+  sealed class Event {
+    object Arm : Event()
+    object Disarm : Event()
+    object Tick : Event()
+    object Motion : Event()
+  }
+  private val eventChannel = Channel<Event>(Channel.UNLIMITED)
   private var pressureWindow = ArrayDeque<Float>()
   private const val WINDOW_SIZE = 25
   private const val MOVEMENT_THRESHOLD = 0.08f
@@ -42,6 +53,7 @@ class AlarmService : Service() {
     super.onCreate()
     startForeground(1, buildNotification())
     startTimer() // start timer, regardless
+    startStateMachine() // set as STANDBY and wait for arming
     sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
     pressureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE)
     if (pressureSensor != null) {
@@ -55,17 +67,15 @@ class AlarmService : Service() {
 
   override fun onDestroy() {
     super.onDestroy()
-    serviceScope.cancel() // clear timers
+    serviceScope.cancel() // clear timers and alarms
     sensorManager.unregisterListener(pressureListener)
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
-      ACTION_ARM -> arm()
-      ACTION_DISARM -> disarm()
-      ACTION_PREALARM -> prealarm()
-      ACTION_ALARM -> alarm()
-      ACTION_RESET -> reset()
+      ACTION_ARM -> eventChannel.trySend(Event.Arm)
+      ACTION_DISARM -> eventChannel.trySend(Event.Disarm)
+      ACTION_RESET -> eventChannel.trySend(Event.Motion)
     }
     return START_STICKY
   }
@@ -87,69 +97,104 @@ class AlarmService : Service() {
       .build()
   }
 
-  private fun arm() {
-    if (state != AlarmState.STANDBY) return
-    state = AlarmState.ARMED
-    // TODO AlarmNoise.ack()
-  }
+  // STATE MACHINE
 
-  private fun disarm() {
-    state = AlarmState.STANDBY
-    // TODO AlarmSound.stop()
-  }
+  private fun startStateMachine() {
+    serviceScope.launch {
+      var current = AlarmState.STANDBY
 
-  private fun prealarm() {
-    if (state != AlarmState.ARMED) return
-    state = AlarmState.PREALARM
-    // TODO AlarmSound.prealarm()
-  }
-
-  private fun alarm() {
-    if (state != AlarmState.PREALARM) return
-    state = AlarmState.ALARMING
-    // TODO AlarmSound.alarm()
-  }
-
-  private fun reset() {
-    if (state == AlarmState.PREALARM || state == AlarmState.ALARMING) {
-      state = AlarmState.ARMED
-      registerMovement()
-      // TODO AlarmSound.stop()
-      // TODO AlarmSound.ack()
+      while (isActive) {
+        current = when (current) {
+          AlarmState.STANDBY -> handleStandby()
+          AlarmState.ARMED -> handleArmed()
+          AlarmState.PREALARM -> handlePrealarm()
+          AlarmState.ALARM -> handleAlarm()
+        }
+      }
     }
   }
 
+  private suspend fun handleStandby(): AlarmState {
+    while (true) {
+      when (eventChannel.receive()) {
+        Event.Arm -> {
+          idleSeconds = 0
+          return AlarmState.ARMED
+        }
+      }
+    }
+  }
+
+  private suspend fun handleArmed(): AlarmState {
+    // TODO: AlarmNoise.stop()
+    // TODO: AlarmNoise.ack()
+    while (true) {
+      when (eventChannel.receive()) {
+        Event.Disarm -> return AlarmState.STANDBY
+        Event.Motion -> idleSeconds = 0
+        Event.Tick -> {
+          idleSeconds++
+          if (idleSeconds >= 20) return AlarmState.PREALARM
+        }
+        else -> {}
+      }
+    }
+  }
+
+  private suspend fun handlePrealarm(): AlarmState {
+    // TODO: AlarmNoise.startPreAlarm()
+    while (true) {
+      when (eventChannel.receive()) {
+          Event.Tick -> {
+            idleSeconds++
+            if (idleSeconds >= 30) return AlarmState.ALARM
+            if (idleSeconds < 20) return AlarmState.ARMED
+          }
+          Event.Motion -> {
+            idleSeconds = 0
+            return AlarmState.ARMED
+          }
+          Event.Disarm -> return AlarmState.STANDBY
+      }
+    }
+  }
+
+  private suspend fun handleAlarm(): AlarmState {
+    // TODO: AlarmNoise.startAlarm()
+    while (true) {
+      when (eventChannel.receive()) {
+        Event.Tick -> {
+          idleSeconds++
+          if (idleSeconds < 20) return AlarmState.ARMED
+        }
+        Event.Motion -> {
+          idleSeconds = 0
+          return AlarmState.ARMED
+        }
+        Event.Disarm -> return AlarmState.STANDBY
+      }
+    }
+  }
+
+  // TIMER
 
   // count until death
   private fun startTimer() {
     if (timerJob?.isActive == true) return
-    seconds = 0
     timerJob = serviceScope.launch {
       while (isActive) {
         delay(1000)
-        idleSeconds++
-        onTick()
+        eventChannel.trySend(Event.Tick)
       }
     }
   }
 
   // reset if moved
   fun registerMovement() {
-    idleSeconds = 0
-  }
-
-  // tick -> check if he's down
-  private suspend fun onTick() {
-    withContext(Dispatchers.Main) {
-      when {
-        idleSeconds == 20 && state == AlarmState.ARMED -> prealarm()
-        idleSeconds == 30 && state == AlarmState.PREALARM -> alarm()
-      }
-    }
+    eventChannel.trySend(Event.Motion)
   }
 
   private fun handlePressure(pressure: Float) {
-    if (state == AlarmState.STANDBY) return
     pressureWindow.addLast(pressure)
     if (pressureWindow.size > WINDOW_SIZE) {
       pressureWindow.removeFirst()
