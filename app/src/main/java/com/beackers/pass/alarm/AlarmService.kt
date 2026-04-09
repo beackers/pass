@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.Context
 import android.os.IBinder
+import android.os.Binder
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -17,6 +18,8 @@ import androidx.core.app.NotificationCompat
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 class AlarmService : Service() {
   // scope declaration
@@ -30,7 +33,9 @@ class AlarmService : Service() {
     object Motion : Event()
   }
   private val eventChannel = Channel<Event>(Channel.UNLIMITED)
+  private var current: AlarmState = AlarmState.STANDBY
   private var pressureWindow = ArrayDeque<Float>()
+  private var lastPressureRange = 0
   private const val WINDOW_SIZE = 25
   private const val MOVEMENT_THRESHOLD = 0.08f
   private lateinit var sensorManager: SensorManager
@@ -46,8 +51,24 @@ class AlarmService : Service() {
   // timer
   private var timerJob: Job? = null
   private var idleSeconds = 0
+
+  // ui updates
+  data class PassUiState(
+    val alarmState: AlarmState = AlarmState.STANDBY,
+    val idleSeconds: Int = 0,
+    val pressureRange: Float = 0f
+  )
+  private val _uiState = MutableStateFlow(PassUiState())
+  val uiState: StateFlow<PassUiState> = _uiState
+  inner class LocalBinder : Binder() {
+    fun getService(): AlarmService = this@AlarmService
+  }
+
+  private var binder = LocalBinder()
   
-  override fun onBind(intent: Intent?) = null
+  override fun onBind(intent: Intent?) {
+    return binder
+  }
 
   override fun onCreate() {
     super.onCreate()
@@ -93,7 +114,6 @@ class AlarmService : Service() {
     return NotificationCompat.Builder(this, channelId)
       .setContentTitle("PASS Armed")
       .setContentText("Monitoring movement")
-      // .setSmallIcon(R.drawable.ic_launcher_foreground)
       .build()
   }
 
@@ -101,7 +121,7 @@ class AlarmService : Service() {
 
   private fun startStateMachine() {
     serviceScope.launch {
-      var current = AlarmState.STANDBY
+      current = AlarmState.STANDBY
 
       while (isActive) {
         current = when (current) {
@@ -117,10 +137,7 @@ class AlarmService : Service() {
   private suspend fun handleStandby(): AlarmState {
     while (true) {
       when (eventChannel.receive()) {
-        Event.Arm -> {
-          idleSeconds = 0
-          return AlarmState.ARMED
-        }
+        Event.Arm -> return AlarmState.ARMED
       }
     }
   }
@@ -131,11 +148,8 @@ class AlarmService : Service() {
     while (true) {
       when (eventChannel.receive()) {
         Event.Disarm -> return AlarmState.STANDBY
-        Event.Motion -> idleSeconds = 0
-        Event.Tick -> {
-          idleSeconds++
-          if (idleSeconds >= 20) return AlarmState.PREALARM
-        }
+        Event.Motion -> {}
+        Event.Tick -> if (idleSeconds >= 20) return AlarmState.PREALARM
         else -> {}
       }
     }
@@ -146,14 +160,10 @@ class AlarmService : Service() {
     while (true) {
       when (eventChannel.receive()) {
           Event.Tick -> {
-            idleSeconds++
             if (idleSeconds >= 30) return AlarmState.ALARM
             if (idleSeconds < 20) return AlarmState.ARMED
           }
-          Event.Motion -> {
-            idleSeconds = 0
-            return AlarmState.ARMED
-          }
+          Event.Motion -> return AlarmState.ARMED
           Event.Disarm -> return AlarmState.STANDBY
       }
     }
@@ -163,15 +173,10 @@ class AlarmService : Service() {
     // TODO: AlarmNoise.startAlarm()
     while (true) {
       when (eventChannel.receive()) {
-        Event.Tick -> {
-          idleSeconds++
-          if (idleSeconds < 20) return AlarmState.ARMED
-        }
-        Event.Motion -> {
-          idleSeconds = 0
-          return AlarmState.ARMED
-        }
+        Event.Tick -> if (idleSeconds < 20) return AlarmState.ARMED
+        Event.Motion -> return AlarmState.ARMED
         Event.Disarm -> return AlarmState.STANDBY
+        else -> {}
       }
     }
   }
@@ -203,10 +208,36 @@ class AlarmService : Service() {
       val min = pressureWindow.minOrNull()!!
       val max = pressureWindow.maxOrNull()!!
       val range = max - min
+      lastPressureRange = range
 
       if (range > MOVEMENT_THRESHOLD) {
         registerMovement()
       }
     }
+  }
+
+  // Update timer
+  private fun startUiReducer() {
+    serviceScope.launch {
+      while (true) {
+        when (eventChannel.receive()) {
+          Event.Arm -> idleSeconds = 0
+          Event.Tick -> idleSeconds++
+          Event.Motion -> idleSeconds = 0
+          else -> {}
+        }
+        // since we're reacting to events
+        // push state anyways
+        publishUiState()
+      }
+    }
+  }
+
+  private suspend fun publishUiState() {
+    _uiState.value = PassUiState(
+      alarmState = current,
+      idleSeconds = idleSeconds,
+      pressureRange = lastPressureRange
+    )
   }
 }
