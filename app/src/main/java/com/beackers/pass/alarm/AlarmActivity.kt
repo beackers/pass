@@ -7,6 +7,7 @@ import android.content.ServiceConnection
 import android.content.ComponentName
 import android.os.IBinder
 import android.content.Intent
+import android.content.Context
 
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -56,7 +57,7 @@ class AlarmActivity : AppCompatActivity() {
   }
 
   private fun observeAlarmStates() {
-    service = alarmService ?: return
+    val service = alarmService ?: return
     lifecycleScope.launch {
       repeatOnLifecycle(Lifecycle.State.STARTED) {
         service.uiState.collect { state ->
