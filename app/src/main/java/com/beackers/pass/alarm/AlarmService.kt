@@ -33,6 +33,7 @@ class AlarmService : Service() {
     object Motion : Event()
   }
   private val eventChannel = Channel<Event>(Channel.UNLIMITED)
+  private var previousState: AlarmState = AlarmState.STANDBY
   private var currentState: AlarmState = AlarmState.STANDBY
   private var pressureWindow = ArrayDeque<Float>()
   private var lastPressureRange = 0
@@ -51,6 +52,9 @@ class AlarmService : Service() {
   // timer
   private var idleSeconds = 0
 
+  // alarm
+  private var alarmNoise = AlarmNoise()
+
   // ui updates
   data class PassUiState(
     val alarmState: AlarmState = AlarmState.STANDBY,
@@ -65,7 +69,7 @@ class AlarmService : Service() {
 
   private var binder = LocalBinder()
   
-  override fun onBind(intent: Intent?) {
+  override fun onBind(intent: Intent?): IBinder {
     return binder
   }
 
@@ -131,9 +135,13 @@ class AlarmService : Service() {
           Event.Tick -> idleSeconds++
         }
 
-        newstate = reduce(currentState, event)
+        val newstate = reduce(currentState, event)
 
-        if (newstate != currentState) currentState = newstate
+        if (newstate != currentState) {
+          previousState = currentState
+          currentState = newstate
+          onStateChanged(previousState, currentState)
+        }
 
         publishUiState()
       }
@@ -157,13 +165,11 @@ class AlarmService : Service() {
       }
 
       AlarmState.PREALARM -> when (event) {
-        Event.Tick -> {
-          when {
-            idleSeconds >= 30 -> AlarmState.ALARM
-            idleSeconds < 20 -> AlarmState.ARMED
-          }
+        Event.Tick -> when {
+          idleSeconds >= 30 -> AlarmState.ALARM
+          idleSeconds < 20 -> AlarmState.ARMED
         }
-        Event.Disarm -> AlsrmState.STANDBY
+        Event.Disarm -> AlarmState.STANDBY
         Event.Motion -> AlarmState.ARMED
         else -> state
       }
@@ -178,6 +184,23 @@ class AlarmService : Service() {
         else -> state
       }
     }
+  }
+
+  private fun onStateChanged(old: AlarmState, new: AlarmState) {
+    when (new) {
+      AlarmState.STANDBY -> alarmNoise.stop()
+      AlarmState.ARMED -> {
+        alarmNoise.stop()
+        alarmNoise.ack()
+      }
+      AlarmState.PREALARM -> {
+        alarmNoise.stop()
+        alarmNoise.prealarm()
+      }
+      AlarmState.ALARM -> {
+        alarmNoise.stop()
+        alarmNoise.alarm()
+      }
   }
 
   private fun handlePressure(pressure: Float) {
@@ -198,7 +221,7 @@ class AlarmService : Service() {
   }
 
   // Update timer
-  private fun startTiemr() {
+  private fun startTimer() {
     serviceScope.launch {
       while (isActive) {
         delay(1000)
@@ -209,7 +232,7 @@ class AlarmService : Service() {
 
   private suspend fun publishUiState() {
     _uiState.value = PassUiState(
-      alarmState = current,
+      alarmState = currentState,
       idleSeconds = idleSeconds,
       pressureRange = lastPressureRange
     )
