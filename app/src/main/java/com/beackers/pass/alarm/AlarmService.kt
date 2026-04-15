@@ -36,7 +36,7 @@ class AlarmService : Service() {
   private var previousState: AlarmState = AlarmState.STANDBY
   private var currentState: AlarmState = AlarmState.STANDBY
   private var pressureWindow = ArrayDeque<Float>()
-  private var lastPressureRange = 0
+  private var lastPressureRange = 0f
   private const val WINDOW_SIZE = 25
   private const val MOVEMENT_THRESHOLD = 0.08f
   private lateinit var sensorManager: SensorManager
