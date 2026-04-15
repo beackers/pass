@@ -13,7 +13,7 @@ class AlarmNoise {
   fun ack() {
     alarmScope.launch {
       repeat(3) {
-        tone.playTone(3400, 90)
+        tone.writeTone(3400, 90)
         delay(90)
       }
     }
