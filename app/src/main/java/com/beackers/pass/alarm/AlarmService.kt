@@ -201,6 +201,7 @@ class AlarmService : Service() {
         alarmNoise.stop()
         alarmNoise.alarm()
       }
+    }
   }
 
   private fun handlePressure(pressure: Float) {
